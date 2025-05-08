@@ -1,0 +1,54 @@
+!pip install pandas numpy seaborn matplotlib scikit-learn xgboost gradio
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+import gradio as gr
+# Upload CSV manually or load from Kaggle
+df = pd.read_csv("/content/Traffic_Accident_Dataset.csv")  # replace with actual filename
+df.head()
+# Handle missing values
+df = df.dropna()
+
+# Label Encoding for categorical columns
+cat_cols = df.select_dtypes(include=['object']).columns
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col])
+
+# Scale numerical columns
+num_cols = df.select_dtypes(include=['int64', 'float64']).columns
+scaler = StandardScaler()
+df[num_cols] = scaler.fit_transform(df[num_cols])
+
+# Define X and y
+X = df.drop('Accident_Severity', axis=1)  # replace with actual target column
+y = df['Accident_Severity']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Random Forest
+rf = RandomForestClassifier()
+rf.fit(X_train, y_train)
+y_pred_rf = rf.predict(X_test)
+
+# Evaluation
+print("Random Forest Classification Report:")
+print(classification_report(y_test, y_pred_rf))
+print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred_rf))
+def predict_accident_severity(*features):
+    input_array = np.array(features).reshape(1, -1)
+    input_scaled = scaler.transform(input_array)
+    pred = rf.predict(input_scaled)[0]
+    return f"Predicted Severity: {pred}"
+
+feature_names = list(X.columns)
+inputs = [gr.Number(label=name) for name in feature_names]
+
+gr.Interface(fn=predict_accident_severity, inputs=inputs, outputs="text").launch()
+
+
